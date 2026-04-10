@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>팡팡! 울트라 숫자 풍선</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+        body {
+            font-family: 'Jua', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: radial-gradient(circle, #e0f7fa 0%, #b2ebf2 100%);
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            z-index: 100;
+        }
+
+        #lastNumberContainer {
+            margin-top: 15px;
+            height: 45px;
+            font-size: 22px;
+            color: #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border-radius: 50px;
+            padding: 0 25px;
+            border: 3px solid #4db6ac;
+            visibility: hidden;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #lastNumber { color: #ff5252; font-size: 30px; margin-left: 10px; }
+
+        input {
+            padding: 10px;
+            font-size: 18px;
+            border: 2px solid #4db6ac;
+            border-radius: 12px;
+            width: 90px;
+            text-align: center;
+            font-family: 'Jua', sans-serif;
+        }
+
+        button {
+            padding: 10px 25px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #00bfa5, #00796b);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #004d40;
+            transition: all 0.1s;
+            font-family: 'Jua', sans-serif;
+        }
+
+        button:active { transform: translateY(3px); box-shadow: none; }
+
+        #stage {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: hidden;
+        }
+
+        #balloon {
+            position: absolute;
+            width: 150px;
+            height: 180px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 2;
+            box-shadow: inset -15px -15px 25px rgba(0,0,0,0.2), 5px 10px 20px rgba(0,0,0,0.1);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-15px) rotate(2deg); }
+        }
+
+        #balloon::after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-bottom: 20px solid var(--b-color);
+        }
+
+        #numberDisplay {
+            font-size: 110px;
+            font-weight: bold;
+            color: #2c3e50;
+            text-shadow: 3px 3px 0px #fff, -3px -3px 0px #fff, 3px -3px 0px #fff, -3px 3px 0px #fff;
+            opacity: 0;
+            z-index: 1;
+        }
+
+        #numberDisplay.show {
+            animation: numberPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes numberPop {
+            0% { opacity: 0; transform: scale(0.3) rotate(-20deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+
+        .confetti {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            pointer-events: none;
+            z-index: 3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="input-group">
+        <input type="number" id="maxInput" min="1" value="20">
+        <button onclick="setup()">시작!</button>
+    </div>
+    <div id="lastNumberContainer">직전 숫자: <span id="lastNumber">-</span></div>
+</div>
+
+<div id="stage">
+    <div id="balloon" onclick="popBalloon()"></div>
+    <h1 id="numberDisplay">0</h1>
+</div>
+
+<script>
+    let numberList = [];
+    let currentIndex = 0;
+    let maxNum = 0;
+    let isAnimating = false;
+    let previousNum = null;
+
+    const colors = ['#FF5252', '#FF4081', '#E040FB', '#7C4DFF', '#536DFE', '#448AFF', '#40C4FF', '#18FFFF', '#64FFDA', '#B2FF59', '#EEFF41', '#FFFF00', '#FFD740', '#FFAB40', '#FF6E40'];
+
+    function setup() {
+        maxNum = parseInt(document.getElementById('maxInput').value);
+        if (isNaN(maxNum) || maxNum <= 0) return alert("숫자를 입력하세요!");
+        
+        resetList();
+        previousNum = null;
+        document.getElementById('lastNumberContainer').style.visibility = "hidden";
+        document.getElementById('stage').style.visibility = "visible";
+        prepareNewBalloon();
+    }
+
+    function resetList() {
+        numberList = Array.from({length: maxNum}, (_, i) => i + 1);
+        for (let i = numberList.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [numberList[i], numberList[j]] = [numberList[j], numberList[i]];
+        }
+        currentIndex = 0;
+    }
+
+    function prepareNewBalloon() {
+        isAnimating = false;
+        const display = document.getElementById('numberDisplay');
+        const balloon = document.getElementById('balloon');
+        
+        display.classList.remove('show');
+        balloon.style.display = 'block';
+        
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        balloon.style.backgroundColor = color;
+        balloon.style.setProperty('--b-color', color);
+
+        if (previousNum !== null) {
+            document.getElementById('lastNumber').innerText = previousNum;
+            document.getElementById('lastNumberContainer').style.visibility = "visible";
+            document.getElementById('lastNumberContainer').style.transform = "scale(1.1)";
+            setTimeout(() => { document.getElementById('lastNumberContainer').style.transform = "scale(1)"; }, 200);
+        }
+    }
+
+    function popBalloon() {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        if (currentIndex >= numberList.length) resetList();
+
+        const result = numberList[currentIndex];
+        const balloon = document.getElementById('balloon');
+        const display = document.getElementById('numberDisplay');
+
+        createFirework(balloon.offsetLeft + 75, balloon.offsetTop + 90, balloon.style.backgroundColor);
+        
+        balloon.style.display = 'none';
+        display.innerText = result;
+        display.classList.add('show');
+
+        currentIndex++;
+        previousNum = result;
+
+        // 속도 개선: 0.8초 후 바로 다음 풍선 준비
+        setTimeout(prepareNewBalloon, 800);
+    }
+
+    function createFirework(x, y, color) {
+        for (let i = 0; i < 40; i++) {
+            const confetti = document.createElement('div');
+            confetti.classList.add('confetti');
+            confetti.style.backgroundColor = color;
+            if (i % 2 === 0) confetti.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+            
+            confetti.style.left = x + 'px';
+            confetti.style.top = y + 'px';
+            confetti.style.borderRadius = i % 3 === 0 ? '0%' : '50%'; // 사각형과 원형 혼합
+            
+            document.getElementById('stage').appendChild(confetti);
+
+            const angle = Math.random() * Math.PI * 2;
+            const velocity = 4 + Math.random() * 8;
+            const tx = Math.cos(angle) * velocity * 15;
+            const ty = Math.sin(angle) * velocity * 15 + 100; // 중력 효과 포함
+
+            confetti.animate([
+                { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
+                { transform: `translate(${tx}px, ${ty}px) rotate(${Math.random()*720}deg)`, opacity: 0 }
+            ], {
+                duration: 600 + Math.random() * 400,
+                easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                fill: 'forwards'
+            });
+
+            setTimeout(() => confetti.remove(), 1000);
+        }
+    }
+</script>
+
+</body>
+</html>
